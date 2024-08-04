@@ -1,20 +1,27 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import SignedInStack from './screens/SignedInStack';
+import SignedOutStack from './screens/SignedOutStack';
+import { StatusBar } from 'react-native';
+import { UserProvider, useUser } from './UserContext';
+import { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase';
+import axios from 'axios'
+
+const AppNavigation = () => {
+  const { user } = useUser()
+  return (
+    <NavigationContainer>
+      {user ? <SignedInStack /> : <SignedOutStack />}
+      <StatusBar barStyle="light-content" backgroundColor={'#003366'} />
+    </NavigationContainer>
+  )
+}
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
+    <UserProvider>
+      <AppNavigation />
+    </UserProvider>
+  )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
