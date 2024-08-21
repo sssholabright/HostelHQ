@@ -1,15 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Button, ActivityIndicator, Alert, SafeAreaView, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../../../firebase';
+import { auth, db } from '../../../firebase'
+import { collection, query, where, doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 
 
-const dummyTourRequests = [
-    { id: '1', studentName: 'John Doe', tourDate: '2024-08-01', status: 'Pending' },
-    { id: '2', studentName: 'Jane Smith', tourDate: '2024-08-03', status: 'Approved' },
-    { id: '3', studentName: 'Sam Wilson', tourDate: '2024-08-05', status: 'Declined' },
-];
-  
 const dummyChats = [
     { id: '1', studentName: 'Emily Davis', lastMessage: 'Looking forward to the tour!', timestamp: '2024-07-20 14:00' },
     { id: '2', studentName: 'Michael Brown', lastMessage: 'Is the room available?', timestamp: '2024-07-21 09:00' },
@@ -23,15 +18,32 @@ const dummyUpcomingEvents = [
 export default function Dashboard({navigation}) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [tourRequests, setTourRequests] = useState([]);
+    const userId = auth.currentUser.uid
+
+    const getTourRequests = async() => {
+            const q = query(collection(db, "tour-requests"), where("agent_id", "==", userId))
+            onSnapshot(q, (querySnapshot) => {
+                const requests = []
+                querySnapshot.forEach((doc) => {
+                    requests.push(doc.data())
+                })
+                setTourRequests(requests)
+            })
+    }
+
+    useEffect(() => {
+        getTourRequests()
+    }, [])
 
     const renderTourRequestItem = useCallback(({ item }) => {
         return (
             <>
             {/* List of Tour Requests: Shows pending tour requests. Each item has a button to view details. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', margin: 5, padding: 10, marginVertical: 5, borderRadius: 5, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 5, elevation: 2 }}>
-                <Text style={{ flex: 1, fontSize: 16, fontWeight: 'bold' }}>{item.studentName}</Text>
-                <Text style={{ fontSize: 14, color: 'gray', textAlign: 'center', marginRight: 50}}>{item.tourDate}</Text>
-                <Text style={{ fontSize: 14, color: item.status === 'Pending' ? 'orange' : item.status === 'Approved' ? 'green' : 'red', backgroundColor: item.status === 'Pending' ? 'rgba(255, 165, 0, 0.1)' : item.status === 'Approved' ? 'rgba(0, 128, 0, 0.1)' : 'rgba(255, 0, 0, 0.1)', padding: 5, borderRadius: 5 }}>{item.status}</Text>
+                <Text style={{ flex: 1, fontSize: 16, fontWeight: 'bold' }}>{item.name}</Text>
+                <Text style={{ fontSize: 14, color: 'gray', textAlign: 'center', marginRight: 50}}>{item.requested_date}</Text>
+                <Text style={{ textTransform: 'capitalize', fontSize: 14, color: item.status === 'pending' ? 'orange' : item.status === 'approved' ? 'green' : 'red', backgroundColor: item.status === 'pending' ? 'rgba(255, 165, 0, 0.1)' : item.status === 'approved' ? 'rgba(0, 128, 0, 0.1)' : 'rgba(255, 0, 0, 0.1)', padding: 5, borderRadius: 5 }}>{item.status}</Text>
             </View>
         </>
         );
@@ -76,8 +88,8 @@ export default function Dashboard({navigation}) {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-around', padding: 20}}>
                     <View style={{ padding: 16, borderRadius: 10, flex: 1, margin: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 5, elevation: 3, backgroundColor: '#fff' }} onPress={() => navigation.navigate('TourRequests')}>
                         <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#003366' }}>Tour Requests</Text>
-                        <Text style={{ fontSize: 13, color: 'gray', fontWeight: 'bold', marginVertical: 5 }}>{dummyTourRequests.length} Pending</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('TourRequests')} style={{ backgroundColor: '#003366', padding: 5, borderRadius: 2 }}>
+                        <Text style={{ fontSize: 13, color: 'gray', fontWeight: 'bold', marginVertical: 5 }}>{tourRequests.status === "approved" ? tourRequests.length : "No pending requests"}</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Tour Request')} style={{ backgroundColor: '#003366', padding: 5, borderRadius: 2 }}>
                             <Text style={{ fontSize: 12, color: '#fff', textAlign: 'center' }}>View All</Text>
                         </TouchableOpacity>
                     </View>
@@ -101,7 +113,7 @@ export default function Dashboard({navigation}) {
                 <View style={{ margin: 15 }}>
                     <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 5, marginBottom: 10 }}>Tour Requests</Text>
                     <FlatList
-                        data={dummyTourRequests}
+                        data={tourRequests}
                         keyExtractor={item => item.id}
                         renderItem={renderTourRequestItem}
                     />

@@ -13,7 +13,7 @@ export default function SignedOutStack({navigation}) {
     return (
         <Stack.Navigator initialRouteName='Intro'>
             <Stack.Screen name="Intro" component={IntroScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="SignIn" component={SignIn} />
+            <Stack.Screen name="SignIn" component={SignIn} options={{ headerShown: false }} />
             <Stack.Screen name="RegisterTab" component={RegisterTab} />
             <Stack.Screen name="SignUp" component={SignUp} options={{ headerShown: false }} />
             <Stack.Screen name="ForgotPassword" component={ForgotPassword} />

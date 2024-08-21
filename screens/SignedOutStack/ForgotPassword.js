@@ -39,8 +39,9 @@ export default function ForgotPassword({navigation}) {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#003366" />
             <View style={styles.formInputContainer}>
+            <Text style={{color: '#000', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 10}}>Forgot Password</Text>
                 <View style={styles.ForgotPasswordTextSection}>
-                    <Text style={styles.ForgotPasswordText}>Enter your email to receive a password reset link</Text>
+                    <Text style={styles.ForgotPasswordText}>Please enter your email address to receive a password reset link</Text>
                 </View>
                 <View style={styles.formInput}>
                     <Text style={styles.formInputText}>Email</Text>
@@ -57,14 +58,23 @@ export default function ForgotPassword({navigation}) {
 
 const styles = StyleSheet.create({
     container: {
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 20
+        paddingHorizontal: 16,
+        backgroundColor: '#fff',
     },
 
     formInputContainer: {
         width: '100%',
+        backgroundColor: '#ECEAFB',
+        paddingHorizontal: 25,
+        paddingVertical: 30,
+        borderRadius: 5,
         marginTop: 50,
+        marginBottom: 20,
+        borderTopLeftRadius: 40,
+        borderBottomRightRadius: 40,
     },
 
     ForgotPasswordTextSection: {
@@ -75,9 +85,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginBottom: 20,
         textAlign: 'center',
+        color: '#666666'
     },
 
-        formInput: {
+    formInput: {
         marginBottom: 20,
     },
 
@@ -85,14 +96,15 @@ const styles = StyleSheet.create({
         color: '#333',
         fontSize: 16,
         marginBottom: 5,
+        fontWeight: 'bold'
     },
 
     formInputField: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 5,
+        borderColor: 'lightgray',
+        backgroundColor: 'white',
+        color: '#666666',
         padding: 10,
-        fontSize: 16,
+        borderRadius: 5,
     },
 
     submitButton: {

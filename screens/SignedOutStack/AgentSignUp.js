@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal } from 'react-native';
-import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
-import { doc, setDoc, getFirestore } from 'firebase/firestore';
-import axios from 'axios'; // Ensure you have axios installed
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
-export default function AgentSignup({ navigation }) {
+export default function AgentSignUp({ navigation }) {
+    const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -20,8 +21,8 @@ export default function AgentSignup({ navigation }) {
         } else {
             setPassError('');
         }
-        setDisabled(!(email && password && confirmPassword && password === confirmPassword));
-    }, [email, password, confirmPassword]);
+        setDisabled(!(name && phone && email && password && confirmPassword && password === confirmPassword));
+    }, [name, phone, email, password, confirmPassword]);
 
     const handleRegister = async () => {
         try {
@@ -35,6 +36,8 @@ export default function AgentSignup({ navigation }) {
             // Save the user profile to Firestore
             const userProfile = {
                 email: email,
+                name: name,
+                phone: phone,
                 uid: user.uid,
                 userType: 'agent', // Set user type as 'agent'
             };
@@ -42,23 +45,6 @@ export default function AgentSignup({ navigation }) {
             const docRef = doc(db, 'users', user.uid);
             await setDoc(docRef, userProfile);
             console.log('User profile saved to Firestore');
-
-            // Get the Firebase token
-            const token = await user.getIdToken();
-
-            // Send token and profile data to Django backend
-            const response = await axios.post('http://192.168.127.91:8000/api/create-or-update-profile/', {
-                token,
-                email: email,
-                name: '', // Pass additional data as needed
-                phone: '' // Pass additional data as needed
-            });
-
-            if (response.status === 200) {
-                setShowModal(true);
-            } else {
-                Alert.alert('Error', `Failed with status: ${response.status}`);
-            }
         } catch (error) {
             console.error('Error registering user:', error);
             Alert.alert('Error', 'An error occurred. Please try again later.');
@@ -66,71 +52,75 @@ export default function AgentSignup({ navigation }) {
             setLoading(false);
         }
     };
-
+    
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#003366" />
-            <KeyboardAvoidingView style={styles.formInputContainer} behavior='padding' keyboardVerticalOffset={100} enabled>
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <Text style={{color: '#003366', fontSize: 25, fontWeight: 'bold'}}>Create a Manager Account</Text>
+            <View style={styles.formInputContainer}>
+                <View style={styles.formInput}>
+                    <Text style={styles.formInputText}>Name</Text>
+                    <TextInput 
+                        style={styles.formInputField} 
+                        placeholder="Enter your full name" 
+                        value={name} 
+                        onChangeText={setName} 
+                    />
+                </View>
                 <View style={styles.formInput}>
                     <Text style={styles.formInputText}>Email</Text>
-                    <TextInput
-                        style={styles.formInputField}
-                        placeholder="Enter your email"
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
+                    <TextInput 
+                        style={styles.formInputField} 
+                        placeholder="Enter your email" 
+                        value={email} 
+                        onChangeText={setEmail} 
+                    />
+                </View>
+                <View style={styles.formInput}>
+                    <Text style={styles.formInputText}>Phone Number</Text>
+                    <TextInput 
+                        style={styles.formInputField} 
+                        placeholder="Enter your phone number" 
+                        value={phone} 
+                        onChangeText={setPhone} 
                     />
                 </View>
                 <View style={styles.formInput}>
                     <Text style={styles.formInputText}>Password</Text>
-                    <TextInput
-                        style={styles.formInputField}
-                        placeholder="Enter your password"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
+                    <TextInput 
+                        style={styles.formInputField} 
+                        placeholder="Enter your password" 
+                        value={password} 
+                        onChangeText={setPassword} 
+                        secureTextEntry 
                     />
                 </View>
                 <View style={styles.formInput}>
                     <Text style={styles.formInputText}>Confirm Password</Text>
-                    <TextInput
-                        style={styles.formInputField}
-                        placeholder="Confirm your password"
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        secureTextEntry
+                    <TextInput 
+                        style={styles.formInputField} 
+                        placeholder="Confirm your password" 
+                        value={confirmPassword} 
+                        onChangeText={setConfirmPassword} 
+                        secureTextEntry 
                     />
                 </View>
                 {passError && <Text style={styles.formInputError}>{passError}</Text>}
-                <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={disabled ? [styles.signUpButton, styles.disabled] : styles.signUpButton}
+                <TouchableOpacity 
+                    activeOpacity={0.8} 
+                    style={disabled ? [styles.signUpButton, styles.disabled] : styles.signUpButton} 
                     onPress={handleRegister}
                     disabled={disabled}
                 >
                     {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.signUpText}>Sign Up</Text>}
                 </TouchableOpacity>
-            </KeyboardAvoidingView>
-
-            <Modal visible={showModal} transparent={true} animationType="slide">
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Account Created</Text>
-                        <Text style={styles.modalMessage}>Your account has been created successfully</Text>
-                        <TouchableOpacity
-                            activeOpacity={0.8}
-                            style={styles.modalButton}
-                            onPress={() => {
-                                setShowModal(false);
-                                navigation.navigate('SignIn'); // Navigate to SignIn screen or any other screen
-                            }}
-                        >
-                            <Text style={styles.modalButtonText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
+                <View style={styles.signInContainer}>
+                    <Text style={styles.signInText}>Already have an account?</Text>
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate("SignIn")}>
+                        <Text style={styles.signInButton}>Sign In</Text>
+                    </TouchableOpacity>
                 </View>
-            </Modal>
+            </View>
         </View>
     );
 }
@@ -138,80 +128,82 @@ export default function AgentSignup({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'flex-start',
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 30,
-        backgroundColor: 'white',
-        width: '100%',
+        paddingHorizontal: 16,
+        backgroundColor: '#fff',
     },
+
     formInputContainer: {
         width: '100%',
+        backgroundColor: '#ECEAFB',
+        paddingHorizontal: 25,
+        paddingVertical: 30,
+        borderRadius: 5,
         marginTop: 20,
+        marginBottom: 20,
+        borderTopLeftRadius: 40,
+        borderBottomRightRadius: 40,
     },
+
     formInput: {
         marginBottom: 20,
     },
+
     formInputText: {
-        fontSize: 15,
+        fontSize: 13,
+        fontWeight: 'bold',
         color: '#666666',
         marginBottom: 5,
+        //display: 'none',
     },
+
     formInputField: {
-        borderWidth: 1,
-        borderColor: '#666666',
-        borderRadius: 5,
-        paddingVertical: 10,
-        paddingHorizontal: 15,
+        borderColor: 'lightgray',
+        backgroundColor: 'white',
         color: '#666666',
+        padding: 10,
+        height: 40,
+        borderRadius: 5,
     },
+
     formInputError: {
         color: 'red',
         marginBottom: 10,
     },
+
     signUpButton: {
         backgroundColor: '#003366',
-        paddingVertical: 15,
         borderRadius: 5,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
     },
+
     signUpText: {
         color: 'white',
+        fontWeight: 'bold',
         fontSize: 15,
     },
+
+    signInContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 20,
+    },
+
     disabled: {
         backgroundColor: '#CCCCCC',
     },
-    modalContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+
+    signInText: {
+        fontSize: 15,
     },
-    modalContent: {
-        backgroundColor: 'white',
-        padding: 20,
-        borderRadius: 10,
-        width: '80%',
-    },
-    modalTitle: {
-        fontSize: 20,
+
+    signInButton: {
+        color: '#003366',
+        fontSize: 15,
         fontWeight: 'bold',
-        marginBottom: 10,
-    },
-    modalMessage: {
-        fontSize: 15,
-        marginBottom: 20,
-    },
-    modalButton: {
-        backgroundColor: '#003366',
-        paddingVertical: 15,
-        borderRadius: 5,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalButtonText: {
-        color: 'white',
-        fontSize: 15,
-    },
+        marginLeft: 5,
+    }
 });

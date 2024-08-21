@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StatusBar, StyleSheet, Switch, TextInput, TouchableOpacity, Alert, ScrollView, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../../../firebase';
+import { auth } from '../../../../firebase';
 import { signOut } from 'firebase/auth';
 import axios from 'axios';
 
@@ -36,7 +36,7 @@ const Settings = ({navigation}) => {
         
                 const token = await auth.currentUser.getIdToken()
         
-                const response = await axios.post('http://192.168.127.91:8000/api/create-or-update-profile/', {
+                const response = await axios.post('http://192.168.217.91:8000/api/create-or-update-profile/', {
                     token,
                     name,
                     email,

@@ -1,22 +1,23 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, FlatList, ActivityIndicator, ScrollView, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, FlatList, ActivityIndicator, ScrollView, SafeAreaView, StatusBar, Modal } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { auth } from '../../../firebase';
-import axios from 'axios';
+import { auth, db } from '../../../../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function HostelUpload({ navigation }) {
     const [hostelName, setHostelName] = useState('');
     const [address, setAddress] = useState('');
     const [description, setDescription] = useState('');
     const [amenities, setAmenities] = useState('Amenities'); // Default value
-    const [roomType, setRoomType] = useState('Room Type'); // Default value
     const [availability, setAvailability] = useState('Availability'); // Default value
     const [capacity, setCapacity] = useState(''); // Default empty string
     const [media, setMedia] = useState([]);
     const [uploading, setUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
+    const [price, setPrice] = useState('');
+    const [showModal, setShowModal] = useState(false);
+    const [error, setError] = useState('');
 
     const requestPermissions = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -40,7 +41,7 @@ export default function HostelUpload({ navigation }) {
         if (!result.canceled) {
             setMedia(result.assets);
         } else {
-            Alert.alert('Error', 'No images selected.');
+            setError('Error', 'No images selected.');
         }
     };
 
@@ -56,100 +57,65 @@ export default function HostelUpload({ navigation }) {
         if (!result.canceled) {
             setMedia([...media, result.assets[0]]);
         } else {
-            Alert.alert('Error', 'No video selected.');
+            setError('Error', 'No video selected.');
         }
     };
 
     const validateForm = () => {
-        if (!hostelName || !address || !description || !amenities || !roomType || !capacity || availability === 'Availability') {
-            Alert.alert('Error', 'Please fill in all fields.');
+        if (!hostelName || !address || !description || !amenities || !capacity || availability === 'Availability') {
+            setError('Please fill in all fields.');
             return false;
         }
         if (isNaN(Number(capacity)) || Number(capacity) <= 0) {
-            Alert.alert('Error', 'Capacity should be a positive number.');
+            setError('Capacity should be a positive number.');
             return false;
         }
         return true;
     };
 
     const handleSubmit = async () => {
+        // Validate the form before proceeding
         if (!validateForm()) return;
-    
+        
         try {
+            // Check if the user is authenticated
             if (!auth.currentUser) {
-                Alert.alert('Error', 'User is not authenticated.');
+                setError('Error', 'User is not authenticated.');
                 return;
             }
-    
-            const token = await auth.currentUser.getIdToken();
-    
-            // Prepare and upload the hostel information
-            const formData = new FormData();
-            formData.append('token', token);
-            formData.append('uid', auth.currentUser.uid)
-            formData.append('hostelName', hostelName);
-            formData.append('address', address);
-            formData.append('description', description);
-            formData.append('amenities', amenities);
-            formData.append('roomType', roomType);
-            formData.append('roomsAvailable', 3);
-            formData.append('price', 189);
-            formData.append('capacity', capacity);
-            formData.append('availability', availability === 'Available');
-    
+            
+            // Set uploading state to true
             setUploading(true);
     
-            // Upload the hostel information
-            const response = await axios.post('http://192.168.127.91:8000/api/agent-listings/create/', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-                onUploadProgress: (progressEvent) => {
-                    const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-                    setUploadProgress(progress);
-                },
-            });
+            // Prepare data to be uploaded
+            const Data = {
+                agent_id: auth.currentUser.uid,
+                hostel_id: `${auth.currentUser.uid}-${hostelName}`,  // Ensure this creates a unique ID
+                hostelName: hostelName,
+                address: address,
+                description: description,
+                amenities: amenities,
+                price: price,
+                capacity: capacity,
+                availability: availability // Assuming 'availability' is a string
+            };
     
-            if (response.status === 201) {
-                // Upload images
-                const imageData = new FormData();
-                media.forEach((item, index) => {
-                    const uriParts = item.uri.split('.');
-                    const fileType = uriParts[uriParts.length - 1];
-                    imageData.append('images', {
-                        uri: item.uri,
-                        type: `image/${fileType}`,
-                        name: `image${index}.${fileType}`,
-                    });
-                });
+            // Upload data to Firestore
+            const uploadRef = doc(db, "hostels", `${auth.currentUser.uid}-${hostelName}`);
+            await setDoc(uploadRef, Data);
     
-                const imageResponse = await axios.post('http://192.168.127.91:8000/api/upload-images/', imageData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                    onUploadProgress: (progressEvent) => {
-                        const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-                        setUploadProgress(progress);
-                    },
-                });
-    
-                if (imageResponse.status === 201) {
-                    Alert.alert('Success', 'Hostel data and media uploaded successfully!');
-                } else {
-                    Alert.alert('Error', `Failed to upload images with status: ${imageResponse.status}`);
-                }
-            } else {
-                Alert.alert('Error', `Failed to create listing with status: ${response.status}`);
-            }
+            // Show success modal
+            setShowModal(true);
         } catch (error) {
+            // Log and display error
             console.error('Error occurred:', error);
-            Alert.alert('Error', `An error occurred: ${error.message}`);
+            setError('Error', `An error occurred: ${error.message}`);
         } finally {
+            // Reset uploading state
             setUploading(false);
         }
-    };    
-    
-
+    };
+       
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor='#fff' />
@@ -160,7 +126,9 @@ export default function HostelUpload({ navigation }) {
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Hostel Information Upload</Text>
                     <TouchableOpacity onPress={handleSubmit} style={styles.uploadButton}>
-                        <Text style={styles.uploadButtonText}>Upload</Text>
+                    {uploading ? (
+                        <ActivityIndicator size="small" color="#fff" />) : (
+                        <Text style={styles.uploadButtonText}>Upload</Text>)}
                     </TouchableOpacity>
                 </View>
                 
@@ -199,15 +167,6 @@ export default function HostelUpload({ navigation }) {
                         </Picker>
                     </View>
                     <View style={styles.picker}>
-                        <Picker selectedValue={roomType} onValueChange={setRoomType}>
-                            <Picker.Item label="Room Type" value="Room Type" color='gray' />
-                            <Picker.Item label="Single" value="Single" />
-                            <Picker.Item label="Double" value="Double" />
-                            <Picker.Item label="Triple" value="Triple" />
-                            <Picker.Item label="Quad" value="Quad" />
-                        </Picker>
-                    </View>
-                    <View style={styles.picker}>
                         <Picker selectedValue={availability} onValueChange={setAvailability}>
                             <Picker.Item label="Availability" value="Availability" color='gray' />
                             <Picker.Item label="Available" value="Available" />
@@ -216,13 +175,21 @@ export default function HostelUpload({ navigation }) {
                     </View>
                     <TextInput
                         style={styles.input}
-                        placeholder="Capacity"
+                        placeholder="Rooms Available"
                         keyboardType="numeric"
                         value={capacity}
                         onChangeText={setCapacity}
                     />
-                </View>
 
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Price"
+                        keyboardType="numeric"
+                        value={price}
+                        onChangeText={(text) => setPrice(text)}
+                    />
+                    {error && <Text style={styles.error}>{error}</Text>}
+                </View>
                 <View style={styles.mediaContainer}>
                     <Text style={styles.mediaTitle}>Upload Photos and Videos</Text>
                     <TouchableOpacity style={styles.button} onPress={handleImageUpload}>
@@ -242,13 +209,21 @@ export default function HostelUpload({ navigation }) {
                         />
                     )}
                 </View>
-                {uploading && (
-                    <View style={styles.progressContainer}>
-                        <ActivityIndicator size="large" color="#007bff" />
-                        <Text style={styles.progressText}>Uploading... {uploadProgress}%</Text>
-                    </View>
-                )}
+                
             </ScrollView>
+            <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+                <Modal visible={showModal} transparent={true} animationType="slide">
+                    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)'}}>
+                        <View style={{backgroundColor: '#fff', padding: 20, borderRadius: 10, width: '80%', alignItems: 'center'}}>
+                            <Ionicons name="checkmark-circle" size={100} color="#003366" />
+                            <Text style={{fontSize: 20, color: '#003366', fontWeight: 'bold', marginBottom: 20}}>Hostel Uploaded</Text>
+                            <TouchableOpacity style={{backgroundColor: '#003366', padding: 10, borderRadius: 5, alignItems: 'center'}} activeOpacity={0.8} onPress={() => [setShowModal(false), navigation.goBack()]}>
+                                <Text style={{color: '#fff', fontSize: 16}}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+            </View>
         </SafeAreaView>
     );
 };
@@ -276,12 +251,17 @@ const styles = StyleSheet.create({
 
     uploadButton: {
         backgroundColor: '#003366',
-        padding: 8,
+        width: 60,
+        height: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
         borderRadius: 4,
+        marginLeft: -20
     },
 
     uploadButtonText: {
         color: '#fff',
+        fontWeight: '500'
     },
 
     form: {
@@ -307,6 +287,10 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         justifyContent: 'center',
         backgroundColor: '#fff',
+    },
+
+    error: {
+        color: '#FF0000',
     },
 
     mediaContainer: {
@@ -340,19 +324,5 @@ const styles = StyleSheet.create({
         height: 100,
         margin: 4,
         borderRadius: 8,
-    },
-    
-    progressContainer: {
-        position: 'absolute',
-        bottom: 16,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-    },
-
-    progressText: {
-        marginTop: 8,
-        fontSize: 16,
-        color: '#007bff',
-    },
+    }
 });

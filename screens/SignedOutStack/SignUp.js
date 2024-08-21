@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, Modal } from 'react-native';
+import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '../../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 export default function SignUp({ navigation }) {
+    const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [passError, setPassError] = useState('');
     const [disabled, setDisabled] = useState(true);
-    const [showModal, setShowModal] = useState(false);
-
 
     useEffect(() => {
         if (password !== confirmPassword) {
@@ -20,46 +20,51 @@ export default function SignUp({ navigation }) {
         } else {
             setPassError('');
         }
-        setDisabled(!(email && password && confirmPassword && password === confirmPassword));
-    }, [email, password, confirmPassword]);
+        setDisabled(!(name && phone && email && password && confirmPassword && password === confirmPassword));
+    }, [name, phone, email, password, confirmPassword]);
 
-    async function handleRegister() {
+    const handleRegister = async () => {
         try {
             setLoading(true);
             
             // Register the user
-            const register = await createUserWithEmailAndPassword(auth, email, password);
-            console.log('Register Response:', register)
-            setShowModal(true);
-            
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            // Save the user profile to Firestore
             const userProfile = {
                 email: email,
-                uid: register.user.uid,
-                password: password,
-                userType: 'client',
+                name: name,
+                phone: phone,
+                uid: user.uid,
+                userType: 'client', // Set user type as 'client'
             };
 
-            // Save the user profile to the firestore
-            
-            const docRef = await setDoc(doc(db, 'users', register.user.uid), userProfile);
-            console.log('Document written with ID:', docRef);
-
+            const docRef = doc(db, 'users', user.uid);
+            await setDoc(docRef, userProfile);
+            console.log('User profile saved to Firestore');
         } catch (error) {
             console.error('Error registering user:', error);
             Alert.alert('Error', 'An error occurred. Please try again later.');
         } finally {
             setLoading(false);
         }
-    }
-            
-    function CloseModal() { 
-        setShowModal(false);
-    }
+    };
     
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#003366" />
-            <KeyboardAvoidingView style={styles.formInputContainer} behavior='padding' keyboardVerticalOffset={100} enabled>
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <Text style={{color: '#003366', fontSize: 30, fontWeight: 'bold'}}>Sign Up</Text>
+            <View style={styles.formInputContainer}>
+                <View style={styles.formInput}>
+                    <Text style={styles.formInputText}>Name</Text>
+                    <TextInput 
+                        style={styles.formInputField} 
+                        placeholder="Enter your full name" 
+                        value={name} 
+                        onChangeText={setName} 
+                    />
+                </View>
                 <View style={styles.formInput}>
                     <Text style={styles.formInputText}>Email</Text>
                     <TextInput 
@@ -67,6 +72,15 @@ export default function SignUp({ navigation }) {
                         placeholder="Enter your email" 
                         value={email} 
                         onChangeText={setEmail} 
+                    />
+                </View>
+                <View style={styles.formInput}>
+                    <Text style={styles.formInputText}>Phone Number</Text>
+                    <TextInput 
+                        style={styles.formInputField} 
+                        placeholder="Enter your phone number" 
+                        value={phone} 
+                        onChangeText={setPhone} 
                     />
                 </View>
                 <View style={styles.formInput}>
@@ -104,19 +118,13 @@ export default function SignUp({ navigation }) {
                         <Text style={styles.signInButton}>Sign In</Text>
                     </TouchableOpacity>
                 </View>
-            </KeyboardAvoidingView>
-
-            <Modal visible={showModal} transparent={true} animationType="slide">
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Account Created</Text>
-                        <Text style={styles.modalMessage}>Your account has been created successfully</Text>
-                        <TouchableOpacity activeOpacity={0.8} style={styles.modalButton} onPress={CloseModal}>
-                            <Text style={styles.modalButtonText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
+                <View style={styles.signInContainer}>
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate("AgentSignUp")}>
+                        <Text style={styles.signInButton}>Click here </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.signInText}>to create a manager account</Text>
                 </View>
-            </Modal>
+            </View>
         </View>
     );
 }
@@ -124,16 +132,22 @@ export default function SignUp({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'flex-start',
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 30,
-        backgroundColor: 'white',
-        width: '100%',
+        paddingHorizontal: 16,
+        backgroundColor: '#fff',
     },
 
     formInputContainer: {
         width: '100%',
+        backgroundColor: '#ECEAFB',
+        paddingHorizontal: 25,
+        paddingVertical: 30,
+        borderRadius: 5,
         marginTop: 20,
+        marginBottom: 20,
+        borderTopLeftRadius: 40,
+        borderBottomRightRadius: 40,
     },
 
     formInput: {
@@ -141,18 +155,20 @@ const styles = StyleSheet.create({
     },
 
     formInputText: {
-        fontSize: 15,
+        fontSize: 13,
+        fontWeight: 'bold',
         color: '#666666',
         marginBottom: 5,
+        //display: 'none',
     },
 
     formInputField: {
-        borderWidth: 1,
-        borderColor: '#666666',
-        borderRadius: 5,
-        paddingVertical: 10,
-        paddingHorizontal: 15,
+        borderColor: 'lightgray',
+        backgroundColor: 'white',
         color: '#666666',
+        padding: 10,
+        height: 40,
+        borderRadius: 5,
     },
 
     formInputError: {
@@ -162,14 +178,15 @@ const styles = StyleSheet.create({
 
     signUpButton: {
         backgroundColor: '#003366',
-        paddingVertical: 15,
         borderRadius: 5,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
     },
 
     signUpText: {
         color: 'white',
+        fontWeight: 'bold',
         fontSize: 15,
     },
 
@@ -188,49 +205,9 @@ const styles = StyleSheet.create({
     },
 
     signInButton: {
-        color: '#00BFFF',
+        color: '#003366',
         fontSize: 15,
         fontWeight: 'bold',
         marginLeft: 5,
-    },
-
-    modalContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    },
-
-    modalContent: {
-        backgroundColor: 'white',
-        padding: 20,
-        borderRadius: 10,
-        width: '80%',
-        alignItems: 'center',
-    },
-
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 10,
-    },
-
-    modalMessage: {
-        fontSize: 15,
-        marginBottom: 20,
-    },
-
-    modalButton: {
-        backgroundColor: '#003366',
-        paddingVertical: 15,
-        borderRadius: 5,
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: '100%',
-    },
-
-    modalButtonText: {
-        color: 'white',
-        fontSize: 15,
-    },
+    }
 });

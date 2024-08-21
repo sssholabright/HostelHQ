@@ -1,63 +1,93 @@
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { StatusBar } from 'react-native';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, SafeAreaView } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, SafeAreaView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { auth, db } from '../../../firebase';
+import { collection, query, where, orderBy, limit, getDocs, doc } from 'firebase/firestore';
 
-// Dummy data for demonstration purposes
-const initialChats = [
-    {
-        id: '1',
-        studentName: 'Emily Davis',
-        lastMessage: 'How about next Monday?',
-        timestamp: '14:10',
-        hasUnseenMessages: true,
-        image: null,
-    },
-    {
-        id: '2',
-        studentName: 'Michael Brown',
-        lastMessage: 'Is the room available?',
-        timestamp: '09:00',
-        hasUnseenMessages: false,
-        image: 'https://example.com/image1.jpg',
-    },
-    {
-        id: '3',
-        studentName: 'John Smith',
-        lastMessage: 'Can I move in next week?',
-        timestamp: '12:30',
-        hasUnseenMessages: true,
-        image: null,
-    },
-];
+// Fetch chats and their last messages
+async function fetchChats() {
+    const chatsRef = collection(db, "chats");
+    const q = query(chatsRef, where("agentId", "==", auth.currentUser.uid));
+    const querySnapshot = await getDocs(q);
 
-export default function Chat({ navigation }) {
-    const [chats, setChats] = useState(initialChats);
+    const chatsWithLastMessage = [];
+    for (const doc of querySnapshot.docs) {
+        const chatData = doc.data();
+        const messagesRef = collection(db, "chats", doc.id, "messages");
+        const lastMessageQuery = query(messagesRef, orderBy("timestamp", "desc"), limit(1));
+        const lastMessageSnapshot = await getDocs(lastMessageQuery);
+        const lastMessage = lastMessageSnapshot.empty ? {} : lastMessageSnapshot.docs[0].data();
+        chatsWithLastMessage.push({
+            ...chatData,
+            lastMessage: lastMessage.text || '',
+            timestamp: lastMessage.timestamp ? lastMessage.timestamp.toDate().toLocaleTimeString().slice(0, 5) : '', // Format timestamp
+            hasUnseenMessages: lastMessage.seen, // Assume lastMessage.seen if it's present
+        });
+    }
+    return chatsWithLastMessage;
+}
+
+export default function AgentChatScreen({ navigation }) {
+    const [chats, setChats] = useState([]);
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const getChats = async () => {
+            const chatsData = await fetchChats();
+            setChats(chatsData);
+            setLoading(false)
+        };
+
+        getChats();
+    }, []);
+
+    const handlePress = useCallback(async (chat) => {
+        // Navigate to chat screen
+        navigation.navigate('ChatScreen', { 
+            chatId: chat.chatId, 
+            image: chat.image, 
+            agentId: chat.agentId, 
+            clientId: chat.clientId, 
+            agentName: chat.agentName,
+            clientName: chat.clientName
+        });
+    }, [navigation]);
 
     const renderChatItem = useCallback(({ item }) => (
-        <TouchableOpacity style={styles.chatContainer} onPress={() => navigation.navigate('ChatScreen', { chatId: item.id, image: item.image, name: item.studentName })}>
+        <TouchableOpacity
+            style={styles.chatContainer}
+            onPress={() => handlePress(item)}
+        >
             {item.image ? (
                 <Image source={{ uri: item.image }} style={styles.avatar} />
             ) : (
                 <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarText}>{item.studentName.charAt(0)}</Text>
+                    <Text style={styles.avatarText}>{item.clientName.charAt(0)}</Text>
                 </View>
             )}
             <View style={styles.chatInfo}>
-                <Text style={styles.chatName}>{item.studentName}</Text>
-                <Text style={styles.chatMessage}>{item.lastMessage}</Text>
+                <Text style={styles.chatName}>{item.clientName}</Text>
+                <Text style={styles.chatMessage}>{item.lastMessage.substr(0, 30)}...</Text>
             </View>
             <View style={styles.chatMeta}>
                 <Text style={styles.chatTimestamp}>{item.timestamp}</Text>
-                {item.hasUnseenMessages && (
+                {!item.hasUnseenMessages ? (
                     <View style={styles.unseenIndicator}>
                         <Ionicons name="ellipse" size={12} color="#007bff" />
                     </View>
-                )}
+                ) : null}
             </View>
             <Ionicons name="chevron-forward" size={24} color="#888" />
         </TouchableOpacity>
-    ), [navigation]);
+    ), [handlePress]);
+
+
+    if (loading) {
+        return (
+            <ActivityIndicator size="large" color="#003366" style={{flex: 1}} />
+        )
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -69,7 +99,10 @@ export default function Chat({ navigation }) {
                 data={chats}
                 keyExtractor={item => item.id}
                 renderItem={renderChatItem}
-                onRefresh={() => setChats(initialChats)}
+                onRefresh={async () => {
+                    const chatsData = await fetchChats();
+                    setChats(chatsData);
+                }}
                 refreshing={false}
                 ListEmptyComponent={<Text style={styles.emptyMessage}>No chats available.</Text>}
             />
@@ -82,7 +115,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f5f5f5',
     },
-    
     chatContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -97,14 +129,12 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 3,
     },
-  
     avatar: {
         width: 50,
         height: 50,
         borderRadius: 25,
         marginRight: 16,
     },
-  
     avatarPlaceholder: {
         width: 50,
         height: 50,
@@ -114,41 +144,33 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginRight: 16,
     },
-  
     avatarText: {
         color: '#fff',
         fontSize: 20,
         fontWeight: 'bold',
     },
-  
     chatInfo: {
         flex: 1,
     },
-  
     chatName: {
         fontSize: 16,
         fontWeight: 'bold',
         marginBottom: 4,
     },
-  
     chatMessage: {
         fontSize: 14,
         color: '#555',
     },
-
     chatMeta: {
         alignItems: 'flex-end',
     },
-
     chatTimestamp: {
         fontSize: 12,
         color: '#888',
     },
-      
     unseenIndicator: {
         marginTop: 4,
     },
-
     emptyMessage: {
         textAlign: 'center',
         marginTop: 20,
@@ -156,4 +178,3 @@ const styles = StyleSheet.create({
         color: '#555',
     },
 });
-

@@ -6,7 +6,6 @@ import { UserProvider, useUser } from './UserContext';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
-import axios from 'axios'
 
 const AppNavigation = () => {
   const { user } = useUser()

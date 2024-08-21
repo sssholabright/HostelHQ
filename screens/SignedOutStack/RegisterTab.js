@@ -39,9 +39,9 @@ export default function RegisterTab({navigation}) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'center',
+        /*justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: '#fff',*/
     },
 
     tabContainer: {
@@ -50,19 +50,5 @@ const styles = StyleSheet.create({
         borderColor: '#ccc',
     },
 
-    tab: {
-        padding: 10,
-        flex: 1,
-        alignItems: 'center',
-    },
 
-    activeTab: {
-        color: '#003366',
-    },
-
-    tabText: {
-        fontSize: 18,
-        color: '#666',
-        fontWeight: 'bold',
-    },
 })

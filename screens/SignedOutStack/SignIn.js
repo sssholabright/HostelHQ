@@ -3,7 +3,6 @@ import { ActivityIndicator, Alert, StatusBar, StyleSheet, Text, TextInput, Touch
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '../../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import axios from 'axios'; // Ensure you have axios installed
 
 export default function SignIn({ navigation }) {
     const [email, setEmail] = useState('');
@@ -27,28 +26,8 @@ export default function SignIn({ navigation }) {
             setLoading(true);
     
             // Login the user
-            const login = await signInWithEmailAndPassword(auth, email, password);
-            console.log('Login Response:', login);
-
-            // Get the Firebase token
-            const token = await login.user.getIdToken();
-            console.log('Firebase Token:', token);
-
-            // Send token to Django backend
-            const response = await axios.post('http://192.168.127.91:8000/api/authenticate/', {
-                token,
-            });
-
-            if (response.status === 200) {
-                // Handle successful response from Django backend
-                console.log('Backend Response:', response.data);
-                // Navigate to the next screen
-                navigation.navigate('Home'); // Update with your next screen
-            } else {
-                Alert.alert('Error', 'Failed to authenticate with the backend');
-            }
+            await signInWithEmailAndPassword(auth, email, password);
         } catch (error) {
-            console.error('Error logging in:', error);
             setError('Invalid email or password');
         } finally {
             setLoading(false);
@@ -75,7 +54,8 @@ export default function SignIn({ navigation }) {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#003366" />
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+            <Text style={{color: '#003366', fontSize: 30, fontWeight: 'bold'}}>LOGIN</Text>
             <View style={styles.formInputContainer}>
                 <View style={styles.formInput}>
                     <Text style={styles.formInputText}>Email</Text>
@@ -112,33 +92,32 @@ export default function SignIn({ navigation }) {
                     activeOpacity={0.8}
                     style={!disabled ? styles.signInButton : styles.disabled}
                     onPress={handleSignIn}
-                    disabled={loading}
+                    disabled={disabled}
                 >
                     {loading ? <ActivityIndicator size="small" color="#fff" /> :
                         <Text style={styles.signInText}>Login</Text>}
                 </TouchableOpacity>
 
                 <Text style={styles.orText}>OR</Text>
+                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly'}}>
                 <TouchableOpacity
                     activeOpacity={0.8}
                     style={[styles.signInWith, { borderColor: "#003366" }]}
                     onPress={() => navigation.navigate("SignUp")}
                 >
-                    <Ionicons name="logo-google" size={24} color="#003366" />
-                    <Text style={styles.signInWithText}>Continue with Google</Text>
+                    <Ionicons name="logo-google" size={20} color="#003366" />
                 </TouchableOpacity>
                 <TouchableOpacity
                     activeOpacity={0.8}
                     style={[styles.signInWith, { borderColor: "#003366" }]}
                     onPress={() => navigation.navigate("SignUp")}
                 >
-                    <Ionicons name="logo-facebook" size={24} color="#003366" />
-                    <Text style={styles.signInWithText}>Continue with Facebook</Text>
+                    <Ionicons name="logo-facebook" size={20} color="#003366" />
                 </TouchableOpacity>
-
+                        </View>
                 <View style={styles.signUpContainer}>
                     <Text style={styles.signUpText}>Don't have an account?</Text>
-                    <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate("RegisterTab")}>
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate("SignUp")}>
                         <Text style={styles.signUpButton}>Sign Up</Text>
                     </TouchableOpacity>
                 </View>
@@ -150,35 +129,48 @@ export default function SignIn({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'flex-start',
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingTop: 20,
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         backgroundColor: '#fff',
     },
+
     formInputContainer: {
         width: '100%',
+        backgroundColor: '#ECEAFB',
+        paddingHorizontal: 25,
+        paddingVertical: 30,
+        borderRadius: 5,
+        marginTop: 50,
+        marginBottom: 20,
+        borderTopLeftRadius: 40,
+        borderBottomRightRadius: 40,
     },
+
     formInput: {
         marginBottom: 20,
     },
+    
     formInputText: {
         fontSize: 15,
         color: 'black',
+        fontWeight: 'bold',
         marginBottom: 5,
     },
+
     formInputError: {
         color: 'red',
         marginBottom: 10,
     },
+    
     formInputField: {
-        borderWidth: 1,
         borderColor: 'lightgray',
         backgroundColor: 'white',
         color: '#666666',
         padding: 10,
         borderRadius: 5,
     },
+    
     forgotPasswordText: {
         textAlign: 'right',
         marginTop: -10,
@@ -211,8 +203,9 @@ const styles = StyleSheet.create({
     signInWith: {
         flexDirection: 'row',
         backgroundColor: 'white',
-        padding: 15,
-        borderRadius: 5,
+        padding: 5,
+        paddingHorizontal: 30,
+        borderRadius: 15,
         borderWidth: 1,
         alignItems: 'center',
         justifyContent: 'center',

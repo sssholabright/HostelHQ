@@ -1,51 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, FlatList, ActivityIndicator, ScrollView, SafeAreaView, StatusBar, Modal } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { auth } from '../../../firebase';
-import axios from 'axios';
+import { db } from '../../../../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function EditHostelScreen({ route, navigation }) {
-    const { id } = route.params; // Get the hostel ID from route 
+    const { data } = route.params; // Get the hostel ID from route 
 
-    const [hostelName, setHostelName] = useState('');
-    const [address, setAddress] = useState('');
-    const [description, setDescription] = useState('');
-    const [amenities, setAmenities] = useState('Amenities'); // Default value
-    const [roomType, setRoomType] = useState('Room Type'); // Default value
-    const [availability, setAvailability] = useState('Availability'); // Default value
-    const [capacity, setCapacity] = useState(''); // Default empty string
+    const [hostelName, setHostelName] = useState(data.hostelName);
+    const [address, setAddress] = useState(data.address);
+    const [description, setDescription] = useState(data.description);
+    const [amenities, setAmenities] = useState(data.amenities); // Default value
+    const [availability, setAvailability] = useState(data.availability); // Default value
+    const [capacity, setCapacity] = useState(data.capacity); // Default empty string
+    const [price, setPrice] = useState(data.price);
     const [media, setMedia] = useState([]);
     const [uploading, setUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [hostelData, setHostelData] = useState(null);
-    const [showModal, setShowModal] = useState(false)
-
-    useEffect(() => {
-        const fetchHostelData = async () => {
-            try {
-                const token = await auth.currentUser.getIdToken();
-                const response = await axios.get(`http://192.168.127.91:8000/api/agent-listings/${id}/`);
-                const data = response.data;
-                setHostelData(data);
-                setHostelName(data.hostelName);
-                setAddress(data.address);
-                setDescription(data.description);
-                setAmenities(data.amenities);
-                setRoomType(data.roomType);
-                setAvailability(data.availability ? 'Available' : 'Not Available');
-                setCapacity(data.capacity)
-                // Load existing media if any
-                // You might need to handle this depending on how you manage media in your backend
-            } catch (err) {
-                console.error(err.message);
-                Alert.alert('Error', 'Failed to fetch hostel data');
-            }
-        };
-
-        fetchHostelData();
-    }, [id]);
+    const [showModal, setShowModal] = useState(false) 
 
     const requestPermissions = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -89,107 +62,32 @@ export default function EditHostelScreen({ route, navigation }) {
         }
     };
 
-    const validateForm = () => {
-        if (!hostelName || !address || !description || !amenities || !roomType || !capacity || availability === 'Availability') {
-            Alert.alert('Error', 'Please fill in all fields.');
-            return false;
-        }
-        if (isNaN(Number(capacity)) || Number(capacity) <= 0) {
-            Alert.alert('Error', 'Capacity should be a positive number.');
-            return false;
-        }
-        return true;
-    };
+
 
     const handleSubmit = async () => {
-        if (!validateForm()) return;
+        setUploading(true)
 
         try {
-            if (!auth.currentUser) {
-                Alert.alert('Error', 'User is not authenticated.');
-                return;
-            }
+            const update = doc(db, 'hostels', data.hostel_id)
+            await setDoc(update, {// Ensure this creates a unique ID
+                hostelName: hostelName,
+                address: address,
+                description: description,
+                amenities: amenities,
+                price: price,
+                capacity: capacity,
+                availability: availability  // Assuming 'availability' is a strin 
+            }, { merge: true });
 
-            const token = await auth.currentUser.getIdToken();
-
-            // Prepare and upload the hostel information
-            const formData = new FormData();
-            formData.append('token', token);
-            formData.append('hostelName', hostelName);
-            formData.append('address', address);
-            formData.append('description', description);
-            formData.append('amenities', amenities);
-            formData.append('roomType', roomType);
-            formData.append('capacity', capacity);
-            formData.append('availability', availability === 'Available');
-
-            setUploading(true);
-
-            // Update the hostel information
-            const response = await axios.put(`http://192.168.127.91:8000/api/agent-listings/${id}/`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-                onUploadProgress: (progressEvent) => {
-                    const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-                    setUploadProgress(progress);
-                },
-            });
-
-            if (response.status === 200) {
-                // Upload images if any
-                if (media.length > 0) {
-                    const imageData = new FormData();
-                    media.forEach((item, index) => {
-                        const uriParts = item.uri.split('.');
-                        const fileType = uriParts[uriParts.length - 1];
-                        imageData.append('images', {
-                            uri: item.uri,
-                            type: `image/${fileType}`,
-                            name: `image${index}.${fileType}`,
-                        });
-                    });
-
-                    const imageResponse = await axios.post('http://192.168.127.91:8000/api/upload-images/', imageData, {
-                        headers: {
-                            'Content-Type': 'multipart/form-data',
-                        },
-                        onUploadProgress: (progressEvent) => {
-                            const progress = Math.round((progressEvent.loaded / progressEvent.total) * 100);
-                            setUploadProgress(progress);
-                        },
-                    });
-
-                    if (imageResponse.status === 201) {
-                        setShowModal(true)
-                    } else {
-                        Alert.alert('Error', `Failed to upload images with status: ${imageResponse.status}`);
-                    }
-                } else {
-                    setShowModal(true)
-                }
-            } else {
-                Alert.alert('Error', `Failed to update listing with status: ${response.status}`);
-            }
         } catch (error) {
             console.error('Error occurred:', error);
             Alert.alert('Error', `An error occurred: ${error.message}`);
         } finally {
             setUploading(false);
+            setShowModal(true)
         }
     };
 
-    if (!hostelData) {
-        return (
-            <SafeAreaView style={styles.container}>
-                <StatusBar barStyle="dark-content" backgroundColor='#fff' />
-                <View style={styles.container}>
-                    <ActivityIndicator size="large" color="#003366" />
-                    <Text>Loading...</Text>
-                </View>
-            </SafeAreaView>
-        );
-    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -211,7 +109,7 @@ export default function EditHostelScreen({ route, navigation }) {
                         style={styles.input}
                         placeholder="Hostel Name"
                         value={hostelName}
-                        onChangeText={setHostelName}
+                        onChangeText={(text) => setHostelName(text)}
                     />
 
                     <TextInput
@@ -241,15 +139,6 @@ export default function EditHostelScreen({ route, navigation }) {
                         </Picker>
                     </View>
                     <View style={styles.picker}>
-                        <Picker selectedValue={roomType} onValueChange={setRoomType}>
-                            <Picker.Item label="Room Type" value="Room Type" color='gray' />
-                            <Picker.Item label="Single" value="Single" />
-                            <Picker.Item label="Double" value="Double" />
-                            <Picker.Item label="Triple" value="Triple" />
-                            <Picker.Item label="Quad" value="Quad" />
-                        </Picker>
-                    </View>
-                    <View style={styles.picker}>
                         <Picker selectedValue={availability} onValueChange={setAvailability}>
                             <Picker.Item label="Availability" value="Availability" color='gray' />
                             <Picker.Item label="Available" value="Available" />
@@ -262,6 +151,13 @@ export default function EditHostelScreen({ route, navigation }) {
                         keyboardType="numeric"
                         value={capacity}
                         onChangeText={setCapacity}
+                    />
+                     <TextInput
+                        style={styles.input}
+                        placeholder="Price"
+                        keyboardType="numeric"
+                        value={price}
+                        onChangeText={setPrice}
                     />
                 </View>
 
@@ -284,12 +180,7 @@ export default function EditHostelScreen({ route, navigation }) {
                         />
                     )}
                 </View>
-                {uploading && (
-                    <View style={styles.progressContainer}>
-                        <ActivityIndicator size="large" color="#007bff" />
-                        <Text style={styles.progressText}>Uploading... {uploadProgress}%</Text>
-                    </View>
-                )}
+               
                 <Modal visible={showModal} transparent={true} animationType="slide">
                 <View style={styles.modalContainer}>
                     <View style={styles.modalContent}>
@@ -331,19 +222,26 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
     },
+       
     uploadButton: {
         backgroundColor: '#003366',
-        padding: 8,
+        width: 60,
+        height: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
         borderRadius: 4,
         marginLeft: -30
     },
+    
     uploadButtonText: {
         color: '#fff',
     },
+    
     form: {
         marginBottom: 16,
         padding: 20,
     },
+    
     input: {
         height: 40,
         borderColor: '#ddd',
@@ -353,6 +251,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         backgroundColor: '#fff',
     },
+    
     picker: {
         height: 40,
         borderColor: '#ddd',
